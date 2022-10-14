@@ -2,41 +2,41 @@ using namespace System.Net
 
 # Input bindings are passed in via param block.
 param($Request, $TriggerMetadata)
-
+Set-Location (Get-Item $PSScriptRoot).Parent.FullName
 $APIName = $TriggerMetadata.FunctionName
-Log-Request -user $request.headers.'x-ms-client-principal' -API $APINAME  -message "Accessed this API" -Sev "Debug"
+Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+$Table = Get-CippTable -tablename 'standards'
 
+$Filter = "PartitionKey eq 'standards'" 
 
-# Write to the Azure Functions log stream.
-Write-Host "PowerShell HTTP trigger function processed a request."
-
-$Tenants = Get-ChildItem "Cache_Standards\*.standards.json"
-
-$CurrentStandards = foreach ($tenant in $tenants) {
-    $StandardsFile = Get-Content "$($tenant)" | ConvertFrom-Json
-    if ($null -eq $StandardsFile.Tenant) { continue }
-    [PSCustomObject]@{
-        displayName                  = $StandardsFile.tenant
-        appliedBy                    = $StandardsFile.addedby
-        appliedAt                    = ($tenant).LastWriteTime.toString('s')
-        "DisableBasicAuth"           = $StandardsFile.standards.DisableBasicAuth
-        "ModernAuth"                 = $StandardsFile.standards.ModernAuth
-        "AuditLog"                   = $StandardsFile.standards.AuditLog
-        "AutoExpandArchive"          = $StandardsFile.standards.AutoExpandArchive
-        "SecurityDefaults"           = $StandardsFile.standards.SecurityDefaults
-        "DisableSharedMailbox"       = $StandardsFile.standards.DisableSharedMailbox
-        "UndoOauth"                  = $StandardsFile.standards.UndoOauth
-        "DisableSelfServiceLicenses" = $StandardsFile.standards.DisableSelfServiceLicenses
-        "AnonReportDisable"          = $StandardsFile.standards.AnonReportDisable
-        "UndoSSPR"                   = $StandardsFile.standards.UndoSSPR
-        "PasswordExpireDisabled"     = $StandardsFile.standards.PasswordExpireDisabled
-        "DelegateSentItems"          = $StandardsFile.standards.DelegateSentItems
-        "OauthConsent"               = $StandardsFile.standards.OauthConsent
-        "SSPR"                       = $StandardsFile.standards.SSPR
-        "LegacyMFA"                  = $StandardsFile.standards.LegacyMFA
-        "SpoofWarn"                  = $StandardsFile.standards.SpoofWarn
+try { 
+    if ($Request.query.TenantFilter) { 
+        $tenants = (Get-AzDataTableRow @Table -Filter $Filter).JSON | ConvertFrom-Json -ErrorAction Stop | Where-Object Tenant -EQ $Request.query.tenantFilter
+    }
+    else {
+        $Tenants = (Get-AzDataTableRow @Table -Filter $Filter).JSON | ConvertFrom-Json -ErrorAction Stop
     }
 }
+catch {}
+
+$CurrentStandards = foreach ($tenant in $tenants) {
+    [PSCustomObject]@{
+        displayName     = $tenant.tenant
+        appliedBy       = $tenant.addedBy
+        appliedAt       = $tenant.appliedAt
+        standards       = $tenant.Standards
+        StandardsExport = ($tenant.Standards.psobject.properties.name) -join ', '
+    }
+}
+if (!$CurrentStandards) {
+    $CurrentStandards = [PSCustomObject]@{
+        displayName = 'No Standards applied'
+        appliedBy   = $null
+        appliedAt   = $null
+        standards   = @{none = $null }
+    }
+}
+
 
 
 # Associate values to output bindings by calling 'Push-OutputBinding'.

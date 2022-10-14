@@ -4,7 +4,7 @@ using namespace System.Net
 param($Request, $TriggerMetadata)
 
 $APIName = $TriggerMetadata.FunctionName
-Log-Request -user $request.headers.'x-ms-client-principal' -API $APINAME  -message "Accessed this API" -Sev "Debug"
+Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME  -message "Accessed this API" -Sev "Debug"
 
 
 # Write to the Azure Functions log stream.
@@ -28,9 +28,9 @@ try {
     @{ Name = 'deviceModel'; Expression = { $_.DeviceModel } },
     @{ Name = 'deviceOS'; Expression = { $_.DeviceOS } },
     @{ Name = 'deviceType'; Expression = { $_.DeviceType } },
-    @{ Name = 'firstSync'; Expression = { $_.FirstSyncTime } },
-    @{ Name = 'lastSyncAttempt'; Expression = { $_.LastSyncAttemptTime } },
-    @{ Name = 'lastSuccessSync'; Expression = { $_.LastSuccessSync } },
+    @{ Name = 'firstSync'; Expression = { $_.FirstSyncTime.toString('s') } },
+    @{ Name = 'lastSyncAttempt'; Expression = { $_.LastSyncAttemptTime.toString('s') } },
+    @{ Name = 'lastSuccessSync'; Expression = { $_.LastSuccessSync.toString('s') } },
     @{ Name = 'status'; Expression = { $_.Status } }
 
     $StatusCode = [HttpStatusCode]::OK
